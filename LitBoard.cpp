@@ -18,25 +18,7 @@
 #include <time.h>
 #include "external/json.hpp"
 
-
-
-/*
- *
-NOTIF ->
-
- if SHANPCHAT -> HTML(litboard.tharci.fail, "notif, snap")
-
- readData(String data) {
-    if (notif) -> if (snap) ->
-
-
-    mqtt.subscribe("/litboard/notif", foo)
-
-    mqtt.send("/litboard/notif", "notif, snap")
-
-   JAVA ---> (DATA) ---> MQTT ---> (DATA) ---> driver
- }
- */
+#include "credentials.h"
 
 
 using namespace lbd;
@@ -86,7 +68,6 @@ LitBoardDriver* LitBoardDriver::getInstance() {
 }
 
 int LitBoardDriver::sendWeatherData() {
-    const std::string APIKey = "50292e2d1fdb13cf5379bca1bf0b2f09";
     const std::string city = "Szentendre";
 
     curlpp::Cleanup cleanup;
