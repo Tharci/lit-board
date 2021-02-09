@@ -25,13 +25,9 @@ namespace lbd {
         [[noreturn]] void run();
         int sendWeatherData();
 
-        ~LitBoardDriver();
-
     private:
         static LitBoardDriver* instance;
-        HIDDevice* keyboard = nullptr;
-
-        static HIDDevice* getKeyboard();
+        HIDDevice keyboard;
     };
 }
 

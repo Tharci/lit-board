@@ -11,11 +11,12 @@
 
 #include <vector>
 #include <hidapi/hidapi.h>
+#include <libusb-1.0/libusb.h>
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Options.hpp>
 #include <sstream>
 #include <chrono>
-#include <time.h>
+#include <ctime>
 #include "external/json.hpp"
 
 #include "credentials.h"
@@ -31,40 +32,45 @@ LitBoardDriver* LitBoardDriver::getInstance() {
 }
 
 
-[[noreturn]] void LitBoardDriver::run() {
+void LitBoardDriver::run() {
+    std::cout << "[TRACE] LitBoard driver running...\n\n";
+    time_t weatherLastSent = 0;
+
     while (true) {
-        if(keyboard == nullptr || !keyboard->isOpen()) {
-            delete keyboard;
+        time_t currTime = time(nullptr);
 
-            keyboard = getKeyboard();
+        static bool prevState = false;
+        static bool currState;
 
-            if (keyboard) {
-                keyboard->open();
-                std::cout << "[TRACE] Keyboard has been found.\n\n";
-            }
-            else {
-                std::cout << "[TRACE] Keyboard not found.\n\n";
-            }
-            std::flush(std::cout);
+        currState = keyboard.open();
+        if (!currState && prevState) {
+            std::cout << "[TRACE] Keyboard has been unplugged.\n\n";
         }
 
-        if (keyboard) {
+        if (!prevState && currState) {
+            std::cout << "[TRACE] Keyboard has been connected.\n\n";
+            weatherLastSent = 0;
+        }
+
+        static bool initialSendSuccess = false;
+
+        if (!initialSendSuccess || currTime - weatherLastSent >= 300) {
             auto result = sendWeatherData();
             if (result < 0) {
-                std::cout << "[TRACE] Failed to weather data.\n\n";
+                std::cout << "[TRACE] Failed to send weather data.\n\n";
             }
             else {
                 std::cout << "[TRACE] Weather data successfully sent.\n\n";
+                initialSendSuccess = true;
             }
-            std::flush(std::cout);
-            sleep(300);
-        }
-        else {
-            sleep(2);
-        }
-    }
 
-    // keyboard->close();
+            weatherLastSent = currTime;
+        }
+
+        prevState = currState;
+        std::flush(std::cout);
+        usleep(2000000);
+    }
 }
 
 int LitBoardDriver::sendWeatherData() {
@@ -73,10 +79,20 @@ int LitBoardDriver::sendWeatherData() {
     curlpp::Cleanup cleanup;
 
     std::ostringstream os;
-    os << curlpp::options::Url(std::string("http://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&appid=" + APIKey));
+    try {
+        os << curlpp::options::Url(std::string("http://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&appid=" + APIKey));
+    } catch (...) {
+        return -1;
+    }
 
+ /*
+    std::string response = R"""(
+{"coord":{"lon":19.0756,"lat":47.6694},"weather":[{"id":500,"main":"Rain","description":"light thunderstorm","icon":"10n"}],"base":"stations","main":{"temp":1.46,"feels_like":-5.27,"temp_min":1.11,"temp_max":1.67,"pressure":997,"humidity":88},"visibility":10000,"wind":{"speed":6.71,"deg":265,"gust":9.39},"rain":{"1h":0.4},"clouds":{"all":99},"dt":1612808124,"sys":{"type":3,"id":2009661,"country":"HU","sunrise":1612764045,"sunset":1612799706},"timezone":3600,"id":3044681,"name":"Szentendre","cod":200}
+)""";
+ */
     std::string response = os.str();
-    std::cout << "HTML Response: \n" << response << std::endl;
+
+    std::cout << "[TRACE] HTML Response: \n" << response << "\n\n";
 
     auto js = nlohmann::json::parse(response);
     if (js["cod"] == 200) {
@@ -104,11 +120,19 @@ int LitBoardDriver::sendWeatherData() {
         }
 
         if (js.contains("rain")) {
-            weatherData.rainIntensity = std::min(UINT8_MAX, (int)(js["rain"]["1h"]));
+            // 25mm+ counts as 100% intensity.
+            int rainInt = std::min(UINT8_MAX, (int)ceil(js["rain"]["1h"].get<double>())) * 4;
+            if (rainInt > 100)
+                rainInt = 100;
+            weatherData.rainIntensity = rainInt;
         }
 
         if (js.contains("snow")) {
-            weatherData.snowIntensity = std::min(UINT8_MAX, (int)js["snow"]["1h"]);
+            // 25mm+ counts as 100% intensity.
+            int snowInt = std::min(UINT8_MAX, (int)ceil(js["snow"]["1h"].get<double>())) * 4;
+            if (snowInt > 100)
+                snowInt = 100;
+            weatherData.snowIntensity = snowInt;
         }
 
         if (js["weather"][0]["main"] == "mist") {
@@ -129,9 +153,6 @@ int LitBoardDriver::sendWeatherData() {
         else if (weatherDesc.find("thunderstorm") != std::string::npos) {
             weatherData.stormIntensity = 50;
         }
-        else if (weatherDesc.find("thunderstorm") != std::string::npos) {
-            weatherData.stormIntensity = 50;
-        }
 
 
         const auto dataSize = 2 + sizeof(WeatherData);
@@ -141,8 +162,10 @@ int LitBoardDriver::sendWeatherData() {
         data[1] = (unsigned char) MessageType::Weather;
         std::memcpy(data + 2, (unsigned char*) (&weatherData), sizeof(WeatherData));
 
-        std::cout << "Data package size: " << dataSize << std::endl;
-        return keyboard->write(data, dataSize);
+        return keyboard.write(data, dataSize);
+    }
+    else if (js["cod"] == "404") {
+        std::cout << "[ERROR] " << js["message"].get<std::string>() << std::endl;
     }
 
     return -1;
@@ -151,42 +174,9 @@ int LitBoardDriver::sendWeatherData() {
     // wIdx = (wIdx + 1) % weathers.size();
 }
 
-LitBoardDriver::~LitBoardDriver() {
-    delete keyboard;
-}
-
-
-HIDDevice* LitBoardDriver::getKeyboard() {
-    const unsigned short vid = 0x04d9;
-    const unsigned short pid = 0xa291;
-
-    struct hid_device_info *devs, *cur_dev;
-    devs = hid_enumerate(0x0, 0x0);
-    cur_dev = devs;
-    while (cur_dev) {
-        printf("[TRACE] Device: vid/pid: %04hx/%04hx\n  path: %s\n  serial_number: %ls usage_page: %x, usage: %x",
-               cur_dev->vendor_id, cur_dev->product_id, cur_dev->path, cur_dev->serial_number, cur_dev->usage_page, cur_dev->usage);
-        printf("\n");
-        printf("  Manufacturer: %ls\n", cur_dev->manufacturer_string);
-        printf("  Product:      %ls\n", cur_dev->product_string);
-        printf("  Interface:    %d\n", cur_dev->interface_number);
-        printf("\n");
-        if( cur_dev->vendor_id == vid && cur_dev->product_id == pid && cur_dev->interface_number == 1) {
-            return new HIDDevice(cur_dev);
-        }
-
-        cur_dev = cur_dev->next;
-    }
-
-    hid_free_enumeration(devs);
-
-    return nullptr;
-}
 
 Time LitBoardDriver::unixToTime(time_t timeUnix) {
-    tm ttm{};
-    time_t t = time(&timeUnix);
-    ttm = * localtime(&t);
+    tm ttm = *localtime(&timeUnix);
 
     return {
         (uint8_t) ttm.tm_hour,
