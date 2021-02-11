@@ -11,7 +11,7 @@ namespace lbd {
         devs = hid_enumerate(0x0, 0x0);
         cur_dev = devs;
         while (cur_dev) {
-            if( cur_dev->vendor_id == vendorId && cur_dev->product_id == productId && cur_dev->interface_number == 1) {
+            if( cur_dev->vendor_id == vendorId && cur_dev->product_id == productId && cur_dev->interface_number == interfaceNumber) {
                 printf("[TRACE] Device: vid/pid: %04hx/%04hx\n  path: %s\n  serial_number: %ls usage_page: %x, usage: %x",
                        cur_dev->vendor_id, cur_dev->product_id, cur_dev->path, cur_dev->serial_number, cur_dev->usage_page, cur_dev->usage);
                 printf("\n");
@@ -72,7 +72,7 @@ namespace lbd {
         if (device == nullptr)
             return false;
 
-        unsigned char dummy;
-        return write(&dummy, 1) != -1;
+        unsigned char dummy[] = {0, 0};
+        return write(dummy, 2) != -1;
     }
 }

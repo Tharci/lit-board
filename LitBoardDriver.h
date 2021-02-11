@@ -2,8 +2,8 @@
 // Created by tharci on 2/7/21.
 //
 
-#ifndef LITBOARD_LITBOARD_H
-#define LITBOARD_LITBOARD_H
+#ifndef LITBOARD_LITBOARDDRIVER_H
+#define LITBOARD_LITBOARDDRIVER_H
 
 
 #include <vector>
@@ -11,12 +11,13 @@
 
 #include "HIDDevice.h"
 #include "WeatherData.h"
+#include "Logger.h"
 
 namespace lbd {
     class LitBoardDriver {
     public:
         enum class MessageType {
-            Weather = 0, Gaming, Notification
+            Weather = 0x11, Gaming, Notification
         };
 
         static LitBoardDriver* getInstance();
@@ -35,4 +36,4 @@ namespace lbd {
 
 
 
-#endif //LITBOARD_LITBOARD_H
+#endif //LITBOARD_LITBOARDDRIVER_H

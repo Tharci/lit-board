@@ -2,7 +2,7 @@
 // Created by tharci on 2/7/21.
 //
 
-#include "LitBoard.h"
+#include "LitBoardDriver.h"
 
 #include <iostream>
 #include <string>

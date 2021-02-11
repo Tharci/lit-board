@@ -18,7 +18,7 @@ struct WeatherData {
     Time time;
     Time sunriseTime;
     Time sunsetTime;
-    int8_t  temp = 0;
+    int8_t temp = 0;
     int8_t tempMin = 0;
     int8_t tempMax = 0;
     uint8_t sunIntensity = 0;
