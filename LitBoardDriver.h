@@ -11,7 +11,6 @@
 
 #include "HIDDevice.h"
 #include "WeatherData.h"
-#include "Logger.h"
 
 namespace lbd {
     class LitBoardDriver {

@@ -3,23 +3,20 @@
 //
 
 #include "LitBoardDriver.h"
+#include "credentials.h"
+#include "json.hpp"
+
+#include "curl/curl.h"
+#undef min
 
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <cstring>
-
 #include <vector>
-#include <hidapi/hidapi.h>
-#include <libusb-1.0/libusb.h>
-#include <curlpp/cURLpp.hpp>
-#include <curlpp/Options.hpp>
-#include <sstream>
 #include <chrono>
 #include <ctime>
-#include "external/json.hpp"
-
-#include "credentials.h"
+#include <thread>
+#include <algorithm>
 
 
 using namespace lbd;
@@ -69,19 +66,37 @@ void LitBoardDriver::run() {
 
         prevState = currState;
         std::flush(std::cout);
-        usleep(2000000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     }
 }
 
+size_t curlWriteStr(void *ptr, size_t size, size_t nmemb, std::string* data) {
+    data->append((char*) ptr, size * nmemb);
+    return size * nmemb;
+}
+
 int LitBoardDriver::sendWeatherData() {
+    auto curl = curl_easy_init();
+    if (!curl) {
+        return -1;
+    }
+
     const std::string city = "Szentendre";
+    const std::string link = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&appid=" + APIKey;
+    std::string response;
 
-    curlpp::Cleanup cleanup;
+    curl_easy_setopt(curl, CURLOPT_URL, link.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteStr);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
-    std::ostringstream os;
-    try {
-        os << curlpp::options::Url(std::string("http://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&appid=" + APIKey));
-    } catch (...) {
+    long response_code;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+    curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    curl = NULL;
+
+    if (response_code != 0 || response.empty()) {
         return -1;
     }
 
@@ -90,7 +105,6 @@ int LitBoardDriver::sendWeatherData() {
 {"coord":{"lon":19.0756,"lat":47.6694},"weather":[{"id":500,"main":"Rain","description":"light thunderstorm","icon":"10n"}],"base":"stations","main":{"temp":1.46,"feels_like":-5.27,"temp_min":1.11,"temp_max":1.67,"pressure":997,"humidity":88},"visibility":10000,"wind":{"speed":6.71,"deg":265,"gust":9.39},"rain":{"1h":0.4},"clouds":{"all":99},"dt":1612808124,"sys":{"type":3,"id":2009661,"country":"HU","sunrise":1612764045,"sunset":1612799706},"timezone":3600,"id":3044681,"name":"Szentendre","cod":200}
 )""";
  */
-    std::string response = os.str();
 
     std::cout << "[TRACE] HTML Response: \n" << response << "\n\n";
 
@@ -111,7 +125,7 @@ int LitBoardDriver::sendWeatherData() {
 
 
         if (js.contains("wind")) {
-            weatherData.windIntensity = std::min(UINT8_MAX, (int)js["wind"]["speed"]);
+            weatherData.windIntensity = std::min((int)UINT8_MAX, (int)js["wind"]["speed"]);
         }
 
         if (js.contains("clouds")) {
@@ -121,7 +135,7 @@ int LitBoardDriver::sendWeatherData() {
 
         if (js.contains("rain")) {
             // 25mm+ counts as 100% intensity.
-            int rainInt = std::min(UINT8_MAX, (int)ceil(js["rain"]["1h"].get<double>())) * 4;
+            int rainInt = std::min((int)UINT8_MAX, (int)ceil(js["rain"]["1h"].get<double>())) * 4;
             if (rainInt > 100)
                 rainInt = 100;
             weatherData.rainIntensity = rainInt;
@@ -129,7 +143,7 @@ int LitBoardDriver::sendWeatherData() {
 
         if (js.contains("snow")) {
             // 25mm+ counts as 100% intensity.
-            int snowInt = std::min(UINT8_MAX, (int)ceil(js["snow"]["1h"].get<double>())) * 4;
+            int snowInt = std::min((int)UINT8_MAX, (int)ceil(js["snow"]["1h"].get<double>())) * 4;
             if (snowInt > 100)
                 snowInt = 100;
             weatherData.snowIntensity = snowInt;
@@ -169,19 +183,17 @@ int LitBoardDriver::sendWeatherData() {
     }
 
     return -1;
-
-
-    // wIdx = (wIdx + 1) % weathers.size();
 }
 
 
 Time LitBoardDriver::unixToTime(time_t timeUnix) {
-    tm ttm = *localtime(&timeUnix);
+    tm timeStruct {};
+    localtime_s(&timeStruct, &timeUnix);
 
     return {
-        (uint8_t) ttm.tm_hour,
-        (uint8_t) ttm.tm_min,
-        (uint8_t) ttm.tm_sec
+        (uint8_t) timeStruct.tm_hour,
+        (uint8_t) timeStruct.tm_min,
+        (uint8_t) timeStruct.tm_sec
     };
 }
 
