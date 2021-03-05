@@ -15,18 +15,10 @@
 namespace lbd {
     class LitBoardDriver {
     public:
-        enum class MessageType {
-            Weather = 0x11, Gaming, Notification
-        };
-
-        static LitBoardDriver* getInstance();
-        static Time unixToTime(time_t time);
-
+        HIDDevice* getKeyboard();
         [[noreturn]] void run();
-        int sendWeatherData();
 
     private:
-        static LitBoardDriver* instance;
         HIDDevice keyboard;
     };
 }

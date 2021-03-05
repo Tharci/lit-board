@@ -29,10 +29,10 @@ else ()
     link_directories(/usr/lib)
 endif ()
 
-add_executable(LitBoard main.cpp LitBoardDriver.cpp LitBoardDriver.h HIDDevice.cpp HIDDevice.h WeatherData.cpp WeatherData.h credentials.h)
+add_executable(LitBoard main.cpp LitBoardDriver.cpp LitBoardDriver.h HIDDevice.cpp HIDDevice.h WeatherData.cpp WeatherData.h credentials.h DriverBehavior.cpp DriverBehavior.h PeriodicDriverBehavior.cpp PeriodicDriverBehavior.h LiveWeatherBehavior.cpp LiveWeatherBehavior.h MessageType.h)
 
 if (WIN32)
-    target_link_libraries(LitBoard hidapi setupapi libcurl Crypt32 ws2_32 winmm wldap32)
+    target_link_libraries(LitBoard hidapi setupapi libcurl Crypt32 ws2_32 winmm wldap32 pthread)
 else ()
-    target_link_libraries(LitBoard libhidapi-hidraw.so libcurl.so)
+    target_link_libraries(LitBoard libhidapi-hidraw.so libcurl.so pthread)
 endif ()

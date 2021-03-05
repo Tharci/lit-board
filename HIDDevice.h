@@ -8,6 +8,7 @@
 #include <hidapi/hidapi.h>
 #include <iostream>
 #include <vector>
+#include <mutex>
 
 
 namespace lbd {
@@ -32,8 +33,9 @@ namespace lbd {
         unsigned short vendorId = 0x04d9;
         unsigned short productId = 0xa291;
         int interfaceNumber = 1;
-
         hid_device *device = nullptr;
+
+        std::mutex mutex;
 
         void searchKeyboard();
 

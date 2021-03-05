@@ -3,8 +3,8 @@
 
 int main(int argc, char* argv[])
 {
-    auto driver = lbd::LitBoardDriver::getInstance();
-    driver->run();
+    lbd::LitBoardDriver driver;
+    driver.run();
 }
 
 

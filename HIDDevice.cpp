@@ -57,7 +57,6 @@ namespace lbd {
     int HIDDevice::write(unsigned char *data, size_t length) {
         if (device) {
             auto result = hid_write(device, data, length);
-
             return result;
         }
 
