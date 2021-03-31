@@ -55,10 +55,33 @@ WeatherData* lbd::LiveWeatherBehavior::getWeatherData() {
     }
 
     /*
-       std::string response = R"""(
-   {"coord":{"lon":19.0756,"lat":47.6694},"weather":[{"id":500,"main":"Rain","description":"light thunderstorm","icon":"10n"}],"base":"stations","main":{"temp":1.46,"feels_like":-5.27,"temp_min":1.11,"temp_max":1.67,"pressure":997,"humidity":88},"visibility":10000,"wind":{"speed":6.71,"deg":265,"gust":9.39},"rain":{"1h":0.4},"clouds":{"all":99},"dt":1612808124,"sys":{"type":3,"id":2009661,"country":"HU","sunrise":1612764045,"sunset":1612799706},"timezone":3600,"id":3044681,"name":"Szentendre","cod":200}
-   )""";
+    response = R"""(
+    {
+        "coord":{"lon":19.0756,"lat":47.6694},
+        "weather":[{"id":500,"main":"Rain","description":"sunny","icon":"10n"}],
+        "base":"stations",
+        "main": {
+            "temp":-45,"feels_like":-5.27,
+            "temp_min":1.11,
+            "temp_max":1.67,
+            "pressure":997,
+            "humidity":88
+        },
+        "visibility":10000,
+        "wind":{"speed":6.71,"deg":265,"gust":9.39},
+        "rain":{"1h":0},
+        "clouds":{"all":0},
+        "dt":1612764070,
+        "sys":{"type":3,"id":2009661,
+            "country":"HU",
+            "sunrise":1612764045,
+            "sunset":1612799706
+        },
+        "timezone":3600,"id":3044681,"name":"Szentendre","cod":200
+    }
+    )""";
     */
+
 
     std::cout << "[TRACE] HTML Response: \n" << response << "\n\n";
 
@@ -73,10 +96,11 @@ WeatherData* lbd::LiveWeatherBehavior::getWeatherData() {
         weatherData.tempMin = jsMain["temp_min"];
         weatherData.tempMax = jsMain["temp_max"];
 
-        int tzone = js["timezone"];
-        weatherData.time = unixToTime((time_t)js["dt"] + tzone);
-        weatherData.sunriseTime = unixToTime((time_t)js["sys"]["sunrise"] + tzone);
-        weatherData.sunsetTime = unixToTime((time_t)js["sys"]["sunset"] + tzone);
+
+        // weatherData.time = unixToTime((time_t)js["dt"]);
+        weatherData.time = unixToTime((time_t)time(nullptr));
+        weatherData.sunriseTime = unixToTime((time_t)js["sys"]["sunrise"]);
+        weatherData.sunsetTime = unixToTime((time_t)js["sys"]["sunset"]);
 
 
         if (js.contains("wind")) {
