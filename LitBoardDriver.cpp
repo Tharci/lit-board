@@ -60,7 +60,7 @@ void LitBoardDriver::run() {
 
         prevState = currState;
         std::flush(std::cout);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(750));
     }
 
     for(auto behavior: behaviors) {

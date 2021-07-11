@@ -16,6 +16,10 @@
 #endif
 
 
+lbd::LiveWeatherBehavior::LiveWeatherBehavior(HIDDevice *keyboard) : PeriodicDriverBehavior(keyboard, 300000) {
+    loadConfig();
+}
+
 void lbd::LiveWeatherBehavior::tick() {
     sendWeatherData(getWeatherData());
 }
@@ -35,7 +39,6 @@ WeatherData* lbd::LiveWeatherBehavior::getWeatherData() {
         return nullptr;
     }
 
-    const std::string city = "Szentendre";
     const std::string link = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&appid=" + APIKey;
     std::string response;
 
@@ -189,5 +192,17 @@ Time lbd::LiveWeatherBehavior::unixToTime(time_t timeUnix) {
 
 void lbd::LiveWeatherBehavior::keyboardConnectedCallback() {
     tick();
+}
+
+void lbd::LiveWeatherBehavior::loadConfig() {
+    std::ifstream weather_config("weather_config.txt");
+    if (weather_config.is_open()) {
+        weather_config >> city;
+        weather_config.close();
+        std::cout << "Weather_config successfully loaded. City: " << city << std::endl;
+    }
+    else {
+        std::cout << "Could not find weather_config.txt\n";
+    }
 }
 

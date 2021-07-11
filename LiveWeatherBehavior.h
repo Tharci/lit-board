@@ -9,19 +9,23 @@
 #include "PeriodicDriverBehavior.h"
 #include "HIDDevice.h"
 #include "WeatherData.h"
+#include <iostream>
+#include <fstream>
 
 namespace lbd {
     class LiveWeatherBehavior: public PeriodicDriverBehavior {
     public:
-        LiveWeatherBehavior(HIDDevice* keyboard) : PeriodicDriverBehavior(keyboard, 300000) {}
+        explicit LiveWeatherBehavior(HIDDevice* keyboard);
 
         void tick() override;
         void keyboardConnectedCallback() override;
 
     private:
-        static WeatherData* getWeatherData();
+        std::string city;
+        WeatherData* getWeatherData();
         bool sendWeatherData(WeatherData* weatherData);
         static Time unixToTime(time_t timeUnix);
+        void loadConfig();
     };
 }
 
