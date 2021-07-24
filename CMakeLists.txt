@@ -29,7 +29,7 @@ else ()
     link_directories(/usr/lib)
 endif ()
 
-add_executable(LitBoard main.cpp LitBoardDriver.cpp LitBoardDriver.h HIDDevice.cpp HIDDevice.h WeatherData.cpp WeatherData.h credentials.h DriverBehavior.cpp DriverBehavior.h PeriodicDriverBehavior.cpp PeriodicDriverBehavior.h LiveWeatherBehavior.cpp LiveWeatherBehavior.h MessageType.h credentials.h)
+add_executable(LitBoard main.cpp main.cpp LitBoardDriver.cpp LitBoardDriver.h component/Component.cpp component/Component.h ConfigHandler.cpp ConfigHandler.h component/LiveWeather.cpp component/LiveWeather.h component/AudioVisualizer.cpp component/AudioVisualizer.h KeyboardHandler.cpp KeyboardHandler.h component/MessageHandler.cpp component/MessageHandler.h component/AppIntegration.cpp component/AppIntegration.h component/ServerHandler.cpp component/ServerHandler.h component/StateHandler.cpp component/StateHandler.h component/NotificationHandler.cpp component/NotificationHandler.h Config.h HIDDevice.cpp HIDDevice.h)
 
 if (WIN32)
     target_link_libraries(LitBoard hidapi setupapi libcurl Crypt32 ws2_32 winmm wldap32)
