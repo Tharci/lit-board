@@ -4,6 +4,6 @@
 
 #include "StateHandler.h"
 
-ComponentId lbd::comp::StateHandler::getComponentId() const {
+lbd::comp::ComponentId lbd::comp::StateHandler::getComponentId() const {
     return ComponentId::StateHandler;
 }

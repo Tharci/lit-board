@@ -9,7 +9,9 @@ if (NOT CMAKE_BUILD_TYPE)
 endif (NOT CMAKE_BUILD_TYPE)
 
 
+include_directories(./)
 include_directories(./external/include)
+include_directories(./component)
 
 
 if (WIN32)

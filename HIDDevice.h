@@ -24,6 +24,7 @@ namespace lbd {
         int write(std::vector<uint8_t> data);
         int write(uint8_t* data, size_t length);
         int write(const std::string &data);
+        int read(uint8_t* data, size_t length);
 
     private:
         std::string path;
@@ -32,7 +33,7 @@ namespace lbd {
         const int interfaceNumber;
         hid_device *device = nullptr;
 
-        void searchKeyboard();
+        void searchDevice();
         static void printBuffer(unsigned char *data, size_t length);
     };
 }

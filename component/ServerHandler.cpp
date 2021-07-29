@@ -4,6 +4,6 @@
 
 #include "ServerHandler.h"
 
-ComponentId lbd::comp::ServerHandler::getComponentId() const {
+lbd::comp::ComponentId lbd::comp::ServerHandler::getComponentId() const {
     return ComponentId::ServerHandler;
 }

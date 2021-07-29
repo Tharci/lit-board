@@ -4,6 +4,6 @@
 
 #include "AppIntegration.h"
 
-ComponentId lbd::comp::AppIntegration::getComponentId() const {
+lbd::comp::ComponentId lbd::comp::AppIntegration::getComponentId() const {
     return ComponentId::AppIntegration;
 }

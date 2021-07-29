@@ -7,33 +7,53 @@
 
 #include "ConfigHandler.h"
 #include "KeyboardHandler.h"
-#include "component/Component.h"
-#include "component/MessageHandler.h"
-#include <hash_map>
+#include "Component.h"
+#include "MessageHandler.h"
+#include "LiveWeather.h"
+#include "AppIntegration.h"
+#include "AudioVisualizer.h"
+#include "NotificationHandler.h"
+#include "ServerHandler.h"
+#include "StateHandler.h"
+
+#include <unordered_map>
 
 
 namespace lbd {
+    /*
+     * Singleton
+     */
     class LitBoardDriver {
     public:
         static LitBoardDriver& getInstance();
-
-        LitBoardDriver() = default;
-        LitBoardDriver(const LitBoardDriver&) = delete;
-        LitBoardDriver& operator= (const LitBoardDriver&) = delete;
-        ~LitBoardDriver();
-
 
         void run();
         ConfigHandler& getConfigHandler();
         KeyboardHandler& getKeyboardHandler();
         comp::MessageHandler& getMessageHandler();
-        std::hash_map<ComponentId, comp::Component*>& getComponents();
+        std::unordered_map<comp::ComponentId, comp::Component*>& getComponents();
+        void addComponent(comp::Component* component);
 
     private:
+        LitBoardDriver();
+        LitBoardDriver(const LitBoardDriver&) = delete;
+        LitBoardDriver& operator= (const LitBoardDriver&) = delete;
+        ~LitBoardDriver() = default;
+
         KeyboardHandler keyboardHandler;
         ConfigHandler configHandler;
+
+        /*
+         * Components
+         */
+        std::unordered_map<comp::ComponentId, comp::Component*> components;
         comp::MessageHandler messageHandler;
-        std::hash_map<ComponentId, comp::Component> components;
+        comp::LiveWeather liveWeather;
+        comp::AppIntegration appIntegration;
+        comp::AudioVisualizer audioVisualizer;
+        comp::NotificationHandler notificationHandler;
+        comp::ServerHandler serverHandler;
+        comp::StateHandler stateHandler;
     };
 }
 

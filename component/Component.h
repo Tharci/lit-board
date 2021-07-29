@@ -8,26 +8,21 @@
 #include <cstdint>
 
 
-enum class ComponentId {
-    AppIntegration      = 1,
-    AudioVisualizer     = 2,
-    LiveWeather         = 3,
-    MessageHandler      = 4,
-    NotificationHandler = 5,
-    ServerHandler       = 6,
-    StateHandler        = 7
-};
-
 
 namespace lbd::comp {
+    enum class ComponentId {
+        AppIntegration      = 1,
+        AudioVisualizer     = 2,
+        LiveWeather         = 3,
+        MessageHandler      = 4,
+        NotificationHandler = 5,
+        ServerHandler       = 6,
+        StateHandler        = 7
+    };
+
     class Component {
     public:
         [[nodiscard]] virtual ComponentId getComponentId() const = 0;
-
-        /*
-         * Calls onKeyboardConnected concurrently when the keyboard is connected.
-         */
-        void keyboardConnectedCallback();
 
         /*
          * Event functions can be implemented in the child classes.
@@ -35,7 +30,7 @@ namespace lbd::comp {
          */
         virtual void onKeyboardConnected() {}
         virtual void onKeyboardDisconnected() {}
-        virtual void onMessageReceived(uint8_t* data) {}
+        virtual void onMessageReceived(uint8_t* data, size_t length) {}
 
     private:
     };

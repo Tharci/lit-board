@@ -4,6 +4,6 @@
 
 #include "NotificationHandler.h"
 
-ComponentId lbd::comp::NotificationHandler::getComponentId() const {
+lbd::comp::ComponentId lbd::comp::NotificationHandler::getComponentId() const {
     return ComponentId::NotificationHandler;
 }

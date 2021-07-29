@@ -14,7 +14,8 @@ namespace lbd {
         KeyboardHandler();
 
         [[noreturn]] void handleKeyboard();
-        [[nodiscard]] bool isConnected() const;
+        [[nodiscard]] bool isConnected();
+        [[nodiscard]] HIDDevice& getKeyboard();
 
     private:
         HIDDevice keyboard;

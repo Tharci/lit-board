@@ -19,7 +19,7 @@ void lbd::HIDDevice::printBuffer(uint8_t* data, size_t length) {
     std::flush(std::cout);
 }
 
-void lbd::HIDDevice::searchKeyboard() {
+void lbd::HIDDevice::searchDevice() {
     struct hid_device_info *devs, *cur_dev;
     devs = hid_enumerate(0x0, 0x0);
     cur_dev = devs;
@@ -50,7 +50,7 @@ lbd::HIDDevice::~HIDDevice() {
 bool lbd::HIDDevice::open() {
     if (!isOpen()) {
         close();
-        searchKeyboard();
+        searchDevice();
         device = hid_open_path(path.c_str());
     }
 
@@ -68,10 +68,8 @@ int lbd::HIDDevice::write(std::vector<uint8_t> data) {
 }
 
 int lbd::HIDDevice::write(uint8_t* data, size_t length) {
-    if (device) {
-        auto result = hid_write(device, data, length);
-        return result;
-    }
+    if (device)
+        return hid_write(device, data, length);
 
     return -1;
 }
@@ -86,4 +84,11 @@ bool lbd::HIDDevice::isOpen() {
 
     uint8_t dummy[] = {0, 0};
     return write(dummy, 2) != -1;
+}
+
+int lbd::HIDDevice::read(uint8_t *data, size_t length) {
+    if (device)
+        return hid_read(device, data, length);
+
+    return -1;
 }
