@@ -17,6 +17,11 @@ namespace lbd::comp {
         void onMessageReceived(uint8_t *data, size_t length) override;
 
     private:
+        enum class Commands {
+            STOP  = 0,
+            START = 1
+        };
+
         void start();
         void stop();
 

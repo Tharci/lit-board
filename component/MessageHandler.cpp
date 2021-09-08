@@ -5,7 +5,6 @@
 #include <iostream>
 #include "MessageHandler.h"
 #include "LitBoardDriver.h"
-#include "Component.h"
 
 
 #define BUFFSIZE 512
@@ -44,30 +43,32 @@ void lbd::comp::MessageHandler::onKeyboardDisconnected() {
     running = false;
 }
 
-/*
- * Structure of a message:
- * [ PlaceholderByte | litBoardMagicCode | MessageType::ComponentMessage | componentId | message ]
- */
 void lbd::comp::MessageHandler::send(const lbd::comp::Component &component, const uint8_t *data, size_t length) {
+    static const int max_message_length = BUFFSIZE - (sizeof magicalSafetyCode + 4);
+
+    if (length > max_message_length) {
+        std::cout << "[ERROR][MESSAGE_HANDLER] Could not send message with length of " << length <<
+                     " since it is too large. Max message length is " << max_message_length << std::endl;
+    }
+
     uint8_t buffer[BUFFSIZE];
     buffer[0] = 0;
-    std::memcpy(buffer + 1, litBoardMagicCode, sizeof litBoardMagicCode);
-    buffer[sizeof litBoardMagicCode + 1] = (uint8_t) component.getComponentId();
-    std::memcpy(buffer + sizeof litBoardMagicCode + 2, data, length);
-    length += sizeof litBoardMagicCode + 2;
+    std::memcpy(buffer + 1, magicalSafetyCode, sizeof magicalSafetyCode);
+    buffer[sizeof magicalSafetyCode + 1] = (uint8_t) commVersion;
+    buffer[sizeof magicalSafetyCode + 2] = (uint8_t) MessageType::ComponentMessage;
+    buffer[sizeof magicalSafetyCode + 3] = (uint8_t) component.getComponentId();
+    std::memcpy(buffer + sizeof magicalSafetyCode + 4, data, length);
+    length += sizeof magicalSafetyCode + 4;
 
     LitBoardDriver::getInstance().getKeyboardHandler().getKeyboard().write(buffer, length);
 }
 
-/*
- * Structure of a message:
- * [ PlaceholderByte | litBoardMagicCode | MessageType::DriverConnected ]
- */
 void lbd::comp::MessageHandler::notifyKeyboard() {
-    uint8_t buffer[1 + sizeof litBoardMagicCode + 1];
+    uint8_t buffer[1 + sizeof magicalSafetyCode + 1 + 1];
     buffer[0] = 0;
-    std::memcpy(buffer + 1, litBoardMagicCode, sizeof litBoardMagicCode);
-    buffer[sizeof litBoardMagicCode + 1] = (uint8_t) MessageType::DriverConnected;
+    std::memcpy(buffer + 1, magicalSafetyCode, sizeof magicalSafetyCode);
+    buffer[sizeof magicalSafetyCode + 1] = (uint8_t) commVersion;
+    buffer[sizeof magicalSafetyCode + 2] = (uint8_t) MessageType::DriverConnected;
 
     LitBoardDriver::getInstance().getKeyboardHandler().getKeyboard().write(buffer, sizeof buffer);
 }

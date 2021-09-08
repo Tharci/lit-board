@@ -32,10 +32,10 @@ void lbd::comp::LiveWeather::onKeyboardConnected() {
             auto weatherData = getWeatherData();
             if (weatherData) {
                 driver.getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof *weatherData);
-                std::cout << "[TRACE] Weather data sent.\n";
+                std::cout << "[TRACE][LIVE_WEATHER] Weather data sent.\n";
             }
             else {
-                std::cout << "[ERROR] Failed to get weather data.\n";
+                std::cout << "[ERROR][LIVE_WEATHER] Failed to get weather data.\n";
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(5000));
@@ -111,7 +111,7 @@ lbd::comp::LiveWeather::WeatherData* lbd::comp::LiveWeather::getWeatherData() {
     */
 
 
-    std::cout << "[TRACE] HTML Response: \n" << response << "\n\n";
+    std::cout << "[TRACE][LIVE_WEATHER] HTML Response: \n" << response << "\n\n";
 
     auto js = nlohmann::json::parse(response);
 
@@ -178,11 +178,9 @@ lbd::comp::LiveWeather::WeatherData* lbd::comp::LiveWeather::getWeatherData() {
 
         return &weatherData;
     }
-    else if (js["cod"] == "404") {
-        std::cout << "[ERROR] " << js["message"].get<std::string>() << std::endl;
-    }
     else {
-
+        std::cout << "[ERROR][LIVE_WEATHER] Unexpected HTML Response:\n "
+                  << js["message"].get<std::string>() << std::endl;
     }
 
     return nullptr;
