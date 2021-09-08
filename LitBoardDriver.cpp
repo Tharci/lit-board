@@ -2,6 +2,7 @@
 // Created by tmarc on 14/07/2021.
 //
 
+#include <iostream>
 #include "LitBoardDriver.h"
 
 lbd::LitBoardDriver &lbd::LitBoardDriver::getInstance() {
@@ -11,7 +12,13 @@ lbd::LitBoardDriver &lbd::LitBoardDriver::getInstance() {
 
 void lbd::LitBoardDriver::run() {
     configHandler.load();
-    keyboardHandler.handleKeyboard();
+    if (configHandler.isLoaded()) {
+        std::cout << "Config successfully loaded.\n";
+        keyboardHandler.handleKeyboard();
+    }
+    else {
+        std::cout << "Config could not be loaded. Exiting...\n";
+    }
 }
 
 lbd::ConfigHandler &lbd::LitBoardDriver::getConfigHandler() {

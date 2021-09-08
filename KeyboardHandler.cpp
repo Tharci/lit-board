@@ -12,10 +12,10 @@ lbd::KeyboardHandler::KeyboardHandler() : keyboard(0x04d9, 0xa291, 1) {
 }
 
 void lbd::KeyboardHandler::handleKeyboard() {
-    while (true) {
-        static bool prevState = false;
-        static bool currState;
+    bool prevState = false;
+    bool currState;
 
+    while (true) {
         currState = keyboard.open();
         if (!currState && prevState) {
             std::cout << "[TRACE] Keyboard has been unplugged.\n";
