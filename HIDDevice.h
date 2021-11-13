@@ -31,7 +31,7 @@ namespace lbd {
         const unsigned short vendorId;
         const unsigned short productId;
         const int interfaceNumber;
-        hid_device *device = nullptr;
+        std::atomic<hid_device*> device = nullptr;
 
         void searchDevice();
         static void printBuffer(unsigned char *data, size_t length);

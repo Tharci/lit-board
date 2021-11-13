@@ -5,8 +5,10 @@
 #ifndef LITBOARD_KEYBOARDHANDLER_H
 #define LITBOARD_KEYBOARDHANDLER_H
 
-
 #include "HIDDevice.h"
+
+#include <mutex>
+
 
 namespace lbd {
     class KeyboardHandler {

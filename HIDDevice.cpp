@@ -68,10 +68,7 @@ int lbd::HIDDevice::write(std::vector<uint8_t> data) {
 }
 
 int lbd::HIDDevice::write(uint8_t* data, size_t length) {
-    if (device)
-        return hid_write(device, data, length);
-
-    return -1;
+    return device ? hid_write(device, data, length) : -1;
 }
 
 int lbd::HIDDevice::write(const std::string &data) {
@@ -87,8 +84,5 @@ bool lbd::HIDDevice::isOpen() {
 }
 
 int lbd::HIDDevice::read(uint8_t *data, size_t length) {
-    if (device)
-        return hid_read(device, data, length);
-
-    return -1;
+    return device ? hid_read(device, data, length) : -1;
 }

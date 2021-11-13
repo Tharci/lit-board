@@ -17,30 +17,30 @@ void lbd::KeyboardHandler::handleKeyboard() {
 
     while (true) {
         currState = keyboard.open();
-        if (!currState && prevState) {
-            std::cout << "[TRACE] Keyboard has been unplugged.\n";
-
-            for(auto& component: LitBoardDriver::getInstance().getComponents()) {
-                component.second->onKeyboardDisconnected();
-            }
-        }
-
         if (!prevState && currState) {
             std::cout << "[TRACE] Keyboard has been connected.\n";
 
             for(auto& component: LitBoardDriver::getInstance().getComponents()) {
-                component.second->onKeyboardConnected();
+                component.second->keyboardConnected();
+            }
+        }
+        else if (!currState && prevState) {
+            std::cout << "[TRACE] Keyboard has been unplugged.\n";
+
+            for(auto& component: LitBoardDriver::getInstance().getComponents()) {
+                component.second->keyboardDisconnected();
             }
         }
 
         prevState = currState;
         std::flush(std::cout);
-        std::this_thread::sleep_for(std::chrono::milliseconds(750));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
 
 bool lbd::KeyboardHandler::isConnected() {
-    return keyboard.isOpen();
+    auto open = keyboard.isOpen();
+    return open;
 }
 
 lbd::HIDDevice& lbd::KeyboardHandler::getKeyboard() {

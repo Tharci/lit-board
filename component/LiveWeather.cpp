@@ -8,7 +8,6 @@
 #include "json.hpp"
 
 #include <iostream>
-#include <thread>
 
 #include "curl/curl.h"
 #undef min
@@ -18,33 +17,27 @@
 #endif
 
 
+
+lbd::comp::LiveWeather::LiveWeather() :
+        Component([this] { asyncTaskCycle(); }, true) { };
+
 lbd::comp::ComponentId lbd::comp::LiveWeather::getComponentId() const {
     return ComponentId::LiveWeather;
 }
 
-void lbd::comp::LiveWeather::onKeyboardConnected() {
-    running = true;
+void lbd::comp::LiveWeather::asyncTaskCycle() {
+    auto weatherData = getWeatherData();
+    if (weatherData) {
+        LitBoardDriver::getInstance().getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof *weatherData);
+        std::cout << "[TRACE][LIVE_WEATHER] Weather data sent.\n";
 
-    std::thread([&] {
-        auto& driver = LitBoardDriver::getInstance();
+        cycleWait(2 * 60 * 1000);
+    }
+    else {
+        std::cout << "[ERROR][LIVE_WEATHER] Failed to get weather data.\n";
+        cycleWait(2000);
+    }
 
-        while (running) {
-            auto weatherData = getWeatherData();
-            if (weatherData) {
-                driver.getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof *weatherData);
-                std::cout << "[TRACE][LIVE_WEATHER] Weather data sent.\n";
-            }
-            else {
-                std::cout << "[ERROR][LIVE_WEATHER] Failed to get weather data.\n";
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-        }
-    }).detach();
-}
-
-void lbd::comp::LiveWeather::onKeyboardDisconnected() {
-    running = false;
 }
 
 
@@ -111,7 +104,7 @@ lbd::comp::LiveWeather::WeatherData* lbd::comp::LiveWeather::getWeatherData() {
     */
 
 
-    std::cout << "[TRACE][LIVE_WEATHER] HTML Response: \n" << response << "\n\n";
+    std::cout << "\n[TRACE][LIVE_WEATHER] HTML Response: \n" << response << "\n\n";
 
     auto js = nlohmann::json::parse(response);
 
@@ -186,7 +179,7 @@ lbd::comp::LiveWeather::WeatherData* lbd::comp::LiveWeather::getWeatherData() {
     return nullptr;
 }
 
-lbd::comp::LiveWeather::Time lbd::comp::LiveWeather::unixToTime(time_t timeUnix) const {
+lbd::comp::LiveWeather::Time lbd::comp::LiveWeather::unixToTime(time_t timeUnix) {
     tm timeStruct {};
     localtime_s(&timeStruct, &timeUnix);
 

@@ -13,7 +13,10 @@
 namespace lbd::comp {
     class AudioVisualizer : public Component {
     public:
+        AudioVisualizer();
         [[nodiscard]] ComponentId getComponentId() const override;
+
+    protected:
         void onMessageReceived(uint8_t *data, size_t length) override;
 
     private:
@@ -24,8 +27,7 @@ namespace lbd::comp {
 
         void start();
         void stop();
-
-        std::atomic<bool> running = false;
+        void asyncTaskCycle();
     };
 }
 

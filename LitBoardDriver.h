@@ -26,6 +26,8 @@ namespace lbd {
     class LitBoardDriver {
     public:
         static LitBoardDriver& getInstance();
+        LitBoardDriver(const LitBoardDriver&) = delete;
+        LitBoardDriver& operator= (const LitBoardDriver&) = delete;
 
         void run();
         ConfigHandler& getConfigHandler();
@@ -36,8 +38,6 @@ namespace lbd {
 
     private:
         LitBoardDriver();
-        LitBoardDriver(const LitBoardDriver&) = delete;
-        LitBoardDriver& operator= (const LitBoardDriver&) = delete;
         ~LitBoardDriver() = default;
 
         KeyboardHandler keyboardHandler;

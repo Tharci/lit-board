@@ -8,6 +8,10 @@
 #include "Component.h"
 
 namespace lbd::comp {
+    enum KeyBoardEffects {
+
+    };
+
     class StateHandler : public Component {
     public:
         [[nodiscard]] ComponentId getComponentId() const override;

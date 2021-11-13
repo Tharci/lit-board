@@ -8,6 +8,9 @@
 #include "AudioVisualizer.h"
 
 
+lbd::comp::AudioVisualizer::AudioVisualizer()
+        : Component([this] { asyncTaskCycle(); }, false) { }
+
 lbd::comp::ComponentId lbd::comp::AudioVisualizer::getComponentId() const {
     return ComponentId::AudioVisualizer;
 }
@@ -31,23 +34,17 @@ void lbd::comp::AudioVisualizer::onMessageReceived(uint8_t *data, size_t length)
 }
 
 void lbd::comp::AudioVisualizer::start() {
-    if (running)
-        return;
-
-    running = true;
-    std::thread([&] {
-        auto& driver = LitBoardDriver::getInstance();
-
-        while (running) {
-            // TODO: send audio data
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20 fps
-        }
-    }).detach();
+    startAsyncCyclicTask();
 }
 
 void lbd::comp::AudioVisualizer::stop() {
-    running = false;
+    stopAsyncCyclicTask();
+}
+
+void lbd::comp::AudioVisualizer::asyncTaskCycle() {
+    // TODO: send audio data
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20 fps
 }
 
 

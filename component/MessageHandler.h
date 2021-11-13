@@ -16,6 +16,8 @@
 namespace lbd::comp {
     class MessageHandler : public Component {
     public:
+        MessageHandler();
+
         [[nodiscard]] ComponentId getComponentId() const override;
 
         /**
@@ -26,8 +28,8 @@ namespace lbd::comp {
          */
         void send(const Component& component, const uint8_t* data, size_t length);
 
+    protected:
         void onKeyboardConnected() override;
-        void onKeyboardDisconnected() override;
 
     private:
         /**
@@ -63,7 +65,7 @@ namespace lbd::comp {
          */
         void notifyKeyboard();
 
-        std::atomic<bool> running;
+        void asyncTaskCycle();
     };
 }
 

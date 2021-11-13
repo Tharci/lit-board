@@ -9,6 +9,8 @@
 #include "WeatherData.h"
 
 #include <atomic>
+#include <thread>
+#include <future>
 
 
 namespace lbd::comp {
@@ -36,14 +38,13 @@ namespace lbd::comp {
             bool mist = false;
         };
 
+        LiveWeather();
         [[nodiscard]] ComponentId getComponentId() const override;
-        void onKeyboardConnected() override;
-        void onKeyboardDisconnected() override;
-        WeatherData* getWeatherData();
-        Time unixToTime(time_t timeUnix) const;
+        static WeatherData* getWeatherData();
+        static Time unixToTime(time_t timeUnix) ;
 
     private:
-        std::atomic<bool> running;
+        void asyncTaskCycle();
     };
 }
 
