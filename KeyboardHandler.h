@@ -13,7 +13,7 @@
 namespace lbd {
     class KeyboardHandler {
     public:
-        KeyboardHandler();
+        KeyboardHandler(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
 
         [[noreturn]] void handleKeyboard();
         [[nodiscard]] bool isConnected();
@@ -21,6 +21,9 @@ namespace lbd {
 
     private:
         HIDDevice keyboard;
+
+        std::mutex& sleepMutex;
+        std::condition_variable& sleepCondVar;
     };
 }
 

@@ -17,6 +17,8 @@
 #include "StateHandler.h"
 
 #include <unordered_map>
+#include <mutex>
+#include <condition_variable>
 
 
 namespace lbd {
@@ -43,14 +45,17 @@ namespace lbd {
         KeyboardHandler keyboardHandler;
         ConfigHandler configHandler;
 
+        std::mutex sleepMutex;
+        std::condition_variable sleepCondVar;
+
         /*
          * Components
          */
         std::unordered_map<comp::ComponentId, comp::Component*> components;
-        comp::MessageHandler messageHandler;
-        comp::LiveWeather liveWeather;
+        comp::MessageHandler messageHandler = comp::MessageHandler {sleepMutex, sleepCondVar};
+        comp::LiveWeather liveWeather = comp::LiveWeather {sleepMutex, sleepCondVar};
         comp::AppIntegration appIntegration;
-        comp::AudioVisualizer audioVisualizer;
+        comp::AudioVisualizer audioVisualizer = comp::AudioVisualizer {sleepMutex, sleepCondVar};
         comp::NotificationHandler notificationHandler;
         comp::ServerHandler serverHandler;
         comp::StateHandler stateHandler;

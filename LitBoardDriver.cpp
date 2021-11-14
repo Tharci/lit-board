@@ -5,7 +5,7 @@
 #include <iostream>
 #include "LitBoardDriver.h"
 
-lbd::LitBoardDriver &lbd::LitBoardDriver::getInstance() {
+lbd::LitBoardDriver& lbd::LitBoardDriver::getInstance() {
     static LitBoardDriver litBoardDriver;
     return litBoardDriver;
 }
@@ -21,19 +21,19 @@ void lbd::LitBoardDriver::run() {
     }
 }
 
-lbd::ConfigHandler &lbd::LitBoardDriver::getConfigHandler() {
+lbd::ConfigHandler& lbd::LitBoardDriver::getConfigHandler() {
     return configHandler;
 }
 
-lbd::KeyboardHandler &lbd::LitBoardDriver::getKeyboardHandler() {
+lbd::KeyboardHandler& lbd::LitBoardDriver::getKeyboardHandler() {
     return keyboardHandler;
 }
 
-lbd::comp::MessageHandler &lbd::LitBoardDriver::getMessageHandler() {
+lbd::comp::MessageHandler& lbd::LitBoardDriver::getMessageHandler() {
     return messageHandler;
 }
 
-std::unordered_map<lbd::comp::ComponentId, lbd::comp::Component*> &lbd::LitBoardDriver::getComponents() {
+std::unordered_map<lbd::comp::ComponentId, lbd::comp::Component*>& lbd::LitBoardDriver::getComponents() {
     return components;
 }
 
@@ -41,7 +41,7 @@ void lbd::LitBoardDriver::addComponent(lbd::comp::Component *component) {
     components.emplace(component->getComponentId(), component);
 }
 
-lbd::LitBoardDriver::LitBoardDriver() {
+lbd::LitBoardDriver::LitBoardDriver() : keyboardHandler(sleepMutex, sleepCondVar) {
     addComponent(&messageHandler);
     addComponent(&liveWeather);
     addComponent(&appIntegration);

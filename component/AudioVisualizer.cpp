@@ -8,8 +8,8 @@
 #include "AudioVisualizer.h"
 
 
-lbd::comp::AudioVisualizer::AudioVisualizer()
-        : Component([this] { asyncTaskCycle(); }, false) { }
+lbd::comp::AudioVisualizer::AudioVisualizer(std::mutex& sleepMutex, std::condition_variable& sleepCondVar)
+        : CyclicComponent([this] { asyncTaskCycle(); }, false, sleepMutex, sleepCondVar) { }
 
 lbd::comp::ComponentId lbd::comp::AudioVisualizer::getComponentId() const {
     return ComponentId::AudioVisualizer;

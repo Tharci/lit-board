@@ -17,9 +17,8 @@
 #endif
 
 
-
-lbd::comp::LiveWeather::LiveWeather() :
-        Component([this] { asyncTaskCycle(); }, true) { };
+lbd::comp::LiveWeather::LiveWeather(std::mutex& sleepMutex, std::condition_variable& sleepCondVar) :
+        CyclicComponent([this] { asyncTaskCycle(); }, true, sleepMutex, sleepCondVar) { };
 
 lbd::comp::ComponentId lbd::comp::LiveWeather::getComponentId() const {
     return ComponentId::LiveWeather;
@@ -31,11 +30,11 @@ void lbd::comp::LiveWeather::asyncTaskCycle() {
         LitBoardDriver::getInstance().getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof *weatherData);
         std::cout << "[TRACE][LIVE_WEATHER] Weather data sent.\n";
 
-        cycleWait(2 * 60 * 1000);
+        conditionalSleep(2 * 60 * 1000);
     }
     else {
         std::cout << "[ERROR][LIVE_WEATHER] Failed to get weather data.\n";
-        cycleWait(2000);
+        conditionalSleep(2000);
     }
 
 }
@@ -74,35 +73,6 @@ lbd::comp::LiveWeather::WeatherData* lbd::comp::LiveWeather::getWeatherData() {
     if (response_code != 0 || response.empty()) {
         return nullptr;
     }
-
-    /*
-    response = R"""(
-    {
-        "coord":{"lon":19.0756,"lat":47.6694},
-        "weather":[{"id":500,"main":"Rain","description":"sunny","icon":"10n"}],
-        "base":"stations",
-        "main": {
-            "temp":-45,"feels_like":-5.27,
-            "temp_min":1.11,
-            "temp_max":1.67,
-            "pressure":997,
-            "humidity":88
-        },
-        "visibility":10000,
-        "wind":{"speed":6.71,"deg":265,"gust":9.39},
-        "rain":{"1h":0},
-        "clouds":{"all":0},
-        "dt":1612764070,
-        "sys":{"type":3,"id":2009661,
-            "country":"HU",
-            "sunrise":1612764045,
-            "sunset":1612799706
-        },
-        "timezone":3600,"id":3044681,"name":"Szentendre","cod":200
-    }
-    )""";
-    */
-
 
     std::cout << "\n[TRACE][LIVE_WEATHER] HTML Response: \n" << response << "\n\n";
 
@@ -190,4 +160,32 @@ lbd::comp::LiveWeather::Time lbd::comp::LiveWeather::unixToTime(time_t timeUnix)
     };
 }
 
+
+/*
+response = R"""(
+{
+    "coord":{"lon":19.0756,"lat":47.6694},
+    "weather":[{"id":500,"main":"Rain","description":"sunny","icon":"10n"}],
+    "base":"stations",
+    "main": {
+        "temp":-45,"feels_like":-5.27,
+        "temp_min":1.11,
+        "temp_max":1.67,
+        "pressure":997,
+        "humidity":88
+    },
+    "visibility":10000,
+    "wind":{"speed":6.71,"deg":265,"gust":9.39},
+    "rain":{"1h":0},
+    "clouds":{"all":0},
+    "dt":1612764070,
+    "sys":{"type":3,"id":2009661,
+        "country":"HU",
+        "sunrise":1612764045,
+        "sunset":1612799706
+    },
+    "timezone":3600,"id":3044681,"name":"Szentendre","cod":200
+}
+)""";
+*/
 

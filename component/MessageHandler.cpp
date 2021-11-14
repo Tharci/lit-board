@@ -10,8 +10,8 @@
 #define BUFFSIZE 512
 
 
-lbd::comp::MessageHandler::MessageHandler()
-        : Component([this] { asyncTaskCycle(); }, true) { }
+lbd::comp::MessageHandler::MessageHandler(std::mutex& sleepMutex, std::condition_variable& sleepCondVar)
+        : CyclicComponent([this] { asyncTaskCycle(); }, true, sleepMutex, sleepCondVar) { }
 
 lbd::comp::ComponentId lbd::comp::MessageHandler::getComponentId() const {
     return ComponentId::MessageHandler;

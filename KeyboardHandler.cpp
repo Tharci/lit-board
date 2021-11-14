@@ -7,9 +7,9 @@
 #include "LitBoardDriver.h"
 
 
-lbd::KeyboardHandler::KeyboardHandler() : keyboard(0x04d9, 0xa291, 1) {
-
-}
+lbd::KeyboardHandler::KeyboardHandler(std::mutex& sleepMutex, std::condition_variable& sleepCondVar)
+    : sleepMutex(sleepMutex), sleepCondVar(sleepCondVar), keyboard(0x04d9, 0xa291, 1)
+{ }
 
 void lbd::KeyboardHandler::handleKeyboard() {
     bool prevState = false;
@@ -30,6 +30,10 @@ void lbd::KeyboardHandler::handleKeyboard() {
             for(auto& component: LitBoardDriver::getInstance().getComponents()) {
                 component.second->keyboardDisconnected();
             }
+
+            // Notify the CyclicComponents about the keyboard being disconnected.
+            std::lock_guard lock(sleepMutex);
+            sleepCondVar.notify_all();
         }
 
         prevState = currState;

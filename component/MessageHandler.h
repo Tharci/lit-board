@@ -5,7 +5,7 @@
 #ifndef LITBOARD_MESSAGEHANDLER_H
 #define LITBOARD_MESSAGEHANDLER_H
 
-#include "Component.h"
+#include "CyclicComponent.h"
 #include "HIDDevice.h"
 
 #include <cstdint>
@@ -14,9 +14,9 @@
 
 
 namespace lbd::comp {
-    class MessageHandler : public Component {
+    class MessageHandler : public CyclicComponent {
     public:
-        MessageHandler();
+        explicit MessageHandler(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
 
         [[nodiscard]] ComponentId getComponentId() const override;
 

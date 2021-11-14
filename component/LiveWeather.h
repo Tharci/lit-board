@@ -5,7 +5,7 @@
 #ifndef LITBOARD_LIVEWEATHER_H
 #define LITBOARD_LIVEWEATHER_H
 
-#include "Component.h"
+#include "CyclicComponent.h"
 #include "WeatherData.h"
 
 #include <atomic>
@@ -14,7 +14,7 @@
 
 
 namespace lbd::comp {
-    class LiveWeather : public Component {
+    class LiveWeather : public CyclicComponent {
     public:
         struct Time {
             uint8_t hour   = 0;
@@ -38,7 +38,7 @@ namespace lbd::comp {
             bool mist = false;
         };
 
-        LiveWeather();
+        explicit LiveWeather(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
         [[nodiscard]] ComponentId getComponentId() const override;
         static WeatherData* getWeatherData();
         static Time unixToTime(time_t timeUnix) ;

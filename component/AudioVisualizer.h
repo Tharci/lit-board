@@ -5,15 +5,15 @@
 #ifndef LITBOARD_AUDIOVISUALIZER_H
 #define LITBOARD_AUDIOVISUALIZER_H
 
-#include "Component.h"
+#include "CyclicComponent.h"
 
 #include <atomic>
 
 
 namespace lbd::comp {
-    class AudioVisualizer : public Component {
+    class AudioVisualizer : public CyclicComponent {
     public:
-        AudioVisualizer();
+        explicit AudioVisualizer(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
         [[nodiscard]] ComponentId getComponentId() const override;
 
     protected:
