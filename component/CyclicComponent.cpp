@@ -26,7 +26,7 @@ void lbd::comp::CyclicComponent::keyboardDisconnected() {
 }
 
 void lbd::comp::CyclicComponent::launchAsyncCyclicTask() {
-    // Do not launch if the asyncTask is still connected
+    // Do not launch if the taskThread is still running
     // Never true, if the called constructor was not the one with asyncTaskCycle,
     //      because taskThread does not get initialized
     if (connected && running && taskThread._Is_ready()) {

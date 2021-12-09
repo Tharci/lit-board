@@ -27,7 +27,7 @@ lbd::comp::ComponentId lbd::comp::LiveWeather::getComponentId() const {
 void lbd::comp::LiveWeather::asyncTaskCycle() {
     auto weatherData = getWeatherData();
     if (weatherData) {
-        LitBoardDriver::getInstance().getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof *weatherData);
+        LitBoardDriver::getInstance().getMessageHandler().send(*this, (uint8_t*) weatherData, sizeof(WeatherData));
         std::cout << "[TRACE][LIVE_WEATHER] Weather data sent.\n";
 
         conditionalSleep(2 * 60 * 1000);

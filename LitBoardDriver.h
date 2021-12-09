@@ -22,7 +22,7 @@
 
 
 namespace lbd {
-    /*
+    /**
      * Singleton
      */
     class LitBoardDriver {
@@ -48,7 +48,7 @@ namespace lbd {
         std::mutex sleepMutex;
         std::condition_variable sleepCondVar;
 
-        /*
+        /**
          * Components
          */
         std::unordered_map<comp::ComponentId, comp::Component*> components;
