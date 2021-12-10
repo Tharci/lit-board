@@ -36,7 +36,6 @@ void lbd::comp::LiveWeather::asyncTaskCycle() {
         std::cout << "[ERROR][LIVE_WEATHER] Failed to get weather data.\n";
         conditionalSleep(2000);
     }
-
 }
 
 

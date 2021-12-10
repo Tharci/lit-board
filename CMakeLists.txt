@@ -8,11 +8,15 @@ if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "Build type not specified: Use Release by default")
 endif (NOT CMAKE_BUILD_TYPE)
 
-
 include_directories(./)
 include_directories(./external/include)
 include_directories(./component)
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+else()
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+endif()
 
 if (WIN32)
     add_compile_definitions(CURL_STATICLIB)
