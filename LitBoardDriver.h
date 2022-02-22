@@ -52,10 +52,10 @@ namespace lbd {
          * Components
          */
         std::unordered_map<comp::ComponentId, comp::Component*> components;
-        comp::MessageHandler messageHandler = comp::MessageHandler {sleepMutex, sleepCondVar};
-        comp::LiveWeather liveWeather = comp::LiveWeather {sleepMutex, sleepCondVar};
+        comp::MessageHandler messageHandler {sleepMutex, sleepCondVar};
+        comp::LiveWeather liveWeather {sleepMutex, sleepCondVar};
         comp::AppIntegration appIntegration;
-        comp::AudioVisualizer audioVisualizer = comp::AudioVisualizer {sleepMutex, sleepCondVar};
+        comp::AudioVisualizer audioVisualizer;
         comp::NotificationHandler notificationHandler;
         comp::ServerHandler serverHandler;
         comp::StateHandler stateHandler;

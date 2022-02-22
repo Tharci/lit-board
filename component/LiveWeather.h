@@ -48,10 +48,10 @@ namespace lbd::comp {
         bool mist = false;
     };
 
-        explicit LiveWeather(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
-        [[nodiscard]] ComponentId getComponentId() const override;
-        static WeatherData* getWeatherData();
-        static Time unixToTime(time_t timeUnix) ;
+    explicit LiveWeather(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
+    [[nodiscard]] ComponentId getComponentId() const override;
+    static WeatherData* getWeatherData();
+    static Time unixToTime(time_t timeUnix);
 
     private:
         void asyncTaskCycle();

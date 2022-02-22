@@ -6,18 +6,18 @@
 #define LITBOARD_AUDIOVISUALIZER_H
 
 #include "CyclicComponent.h"
-
-#include <atomic>
+#include "simple_fft/fft.h"
+#include "AudioClientProvider.h"
 
 
 namespace lbd::comp {
-    class AudioVisualizer : public CyclicComponent {
+    class AudioVisualizer : public Component {
     public:
-        explicit AudioVisualizer(std::mutex& sleepMutex, std::condition_variable& sleepCondVar);
+        AudioVisualizer();
         [[nodiscard]] ComponentId getComponentId() const override;
 
     protected:
-        void onMessageReceived(uint8_t *data, size_t length) override;
+        void onMessageReceived(uint8_t* data, size_t length) override;
 
     private:
         enum class Commands {
@@ -27,7 +27,26 @@ namespace lbd::comp {
 
         void start();
         void stop();
-        void asyncTaskCycle();
+        void onKeyboardDisconnected() override;
+        void startLoopbackAudio();
+
+        std::atomic<bool> running = false;
+
+        tWAVEFORMATEX format;
+        std::vector<float> buffer;
+        size_t bufferIdx;
+        uint64_t packageSentMs {};
+
+        std::vector<complex_type> firstChannel;
+        std::vector<complex_type> secondChannel;
+        std::vector<float> fftBuffer;
+        size_t fftBufferIdx;
+
+        AudioClientProvider audioClientProvider;
+
+        HRESULT SetFormat(WAVEFORMATEX* format);
+        HRESULT CopyData(byte* byteBuff, unsigned buffLen, BOOL* b);
+        void doFFT();
     };
 }
 

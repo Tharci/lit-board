@@ -2,21 +2,28 @@
 // Created by tmarc on 14/07/2021.
 //
 
-#include <iostream>
-#include <thread>
 #include <LitBoardDriver.h>
+#include <initguid.h>
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
+#include <audioclient.h>
+#include <thread>
+#include <iostream>
+#include <vector>
+#include <chrono>
 #include "AudioVisualizer.h"
 
 
-lbd::comp::AudioVisualizer::AudioVisualizer(std::mutex& sleepMutex, std::condition_variable& sleepCondVar)
-        : CyclicComponent([this] { asyncTaskCycle(); }, false, sleepMutex, sleepCondVar) { }
+lbd::comp::AudioVisualizer::AudioVisualizer() {
+    startLoopbackAudio();
+}
 
 lbd::comp::ComponentId lbd::comp::AudioVisualizer::getComponentId() const {
     return ComponentId::AudioVisualizer;
 }
 
-void lbd::comp::AudioVisualizer::onMessageReceived(uint8_t *data, size_t length) {
-    if (length != 1) {
+void lbd::comp::AudioVisualizer::onMessageReceived(uint8_t* data, size_t length) {
+    if (length < 1) {
         std::cout << "[ERROR][AUDIO_VISUALIZER] Unexpected message length of '" << length << "' received. Expected length of 1.\n";
         return;
     }
@@ -34,244 +41,197 @@ void lbd::comp::AudioVisualizer::onMessageReceived(uint8_t *data, size_t length)
 }
 
 void lbd::comp::AudioVisualizer::start() {
-    startAsyncCyclicTask();
+    running = true;
+    std::cout << "[INFO][AUDIO_VISUALIZER] Started.\n";
 }
 
 void lbd::comp::AudioVisualizer::stop() {
-    stopAsyncCyclicTask();
+    if (running) {
+        std::cout << "[INFO][AUDIO_VISUALIZER] Stopped.\n";
+    }
+    running = false;
 }
 
-void lbd::comp::AudioVisualizer::asyncTaskCycle() {
-    // TODO: send audio data
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20 fps
+void lbd::comp::AudioVisualizer::onKeyboardDisconnected() {
+    stop();
 }
 
-
-
-/*
-
-
-
-//-----------------------------------------------------------
-// Record an audio stream from the default audio capture
-// device. The RecordAudioStream function allocates a shared
-// buffer big enough to hold one second of PCM audio data.
-// The function uses this buffer to stream data from the
-// capture device. The main loop runs every 1/2 second.
-//-----------------------------------------------------------
-
-
-#include <windows.h>
-#include <initguid.h>
-#include <mmdeviceapi.h>
-#include <endpointvolume.h>
-#include <audioclient.h>
-#include <thread>
-#include <chrono>
-#include <iostream>
-#include "bass.h"
-
-
-class MyAudioSink {
-public:
-    HRESULT SetFormat(WAVEFORMATEX*);
-    HRESULT CopyData(BYTE*, UINT32, BOOL*);
-};
-
-HRESULT MyAudioSink::CopyData(BYTE * buffer, UINT32 length, BOOL* b) {
-    auto* data = (float*) buffer;
-
-    if (buffer) {
-        std::cout << length << std::endl;
-
-        for (int i = 0; i < length; i++) {
-            std::cout << data[i] << ' ';
-        }
-
-        std::cout << std::endl;
-
-
-        //fftw_complex *in, *out;
-        //in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * length2);
-        //out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * length2);
-        //fftw_plan p = fftw_plan_dft_1d(length2, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        //
-        //for (int i = 0; i < length2; i++) {
-        //    in[i][0] = (double)data2[i];
-        //    in[i][1] = 0;
-        //}
-        //
-        //fftw_execute(p);
-        //fftw_destroy_plan(p);
-        //fftw_free(in); fftw_free(out);
-        //
-}
-else {
-std::cout << "-1\n";
+uint64_t getTimeMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+    ).count();
 }
 
-return 0;
+uint64_t largest2PowerBelow(uint64_t v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v / 2;
 }
 
-HRESULT MyAudioSink::SetFormat(WAVEFORMATEX* format) {
-    //if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-    //    auto waveformatextensible = reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format);
-    //
-    //    waveformatextensible
-    //}
+HRESULT lbd::comp::AudioVisualizer::SetFormat(WAVEFORMATEX* format) {
+    if (format->nChannels != 2) {
+        throw std::exception("Expected number of channels is 2.");
+    }
+
+    this->format = *format;
+    // The buffer contains 200ms of data.
+    auto bufferSize = largest2PowerBelow(format->nAvgBytesPerSec / 5 / 8 / (format->wBitsPerSample / 8));
+    buffer.resize(bufferSize);
+    fftBuffer.resize(bufferSize);
+    firstChannel.resize(bufferSize / 2);
+    secondChannel.resize(bufferSize / 2);
+    std::memset(buffer.data(), 0, buffer.size() * (format->wBitsPerSample / 8));
+    bufferIdx = 1;
+
     return 0;
 }
 
+HRESULT lbd::comp::AudioVisualizer::CopyData(byte* byteBuff, unsigned buffLen, BOOL* b) {
+    auto* buff = (float*) byteBuff;
+    buffLen /= 4;
+
+    if (byteBuff == nullptr) {
+        for (int i = 0; i < buffLen; i++) {
+            buffer[(bufferIdx + i) % buffer.size()] = 0;
+        }
+    }
+    else {
+        for (int i = 0; i < buffLen; i++) {
+            buffer[(bufferIdx + i) % buffer.size()] = buff[i];
+        }
+    }
+
+    bufferIdx = (bufferIdx + buffLen) % buffer.size();
+
+    auto currTime = getTimeMs();
+    if (running && currTime - packageSentMs > 80) {
+        fftBufferIdx = bufferIdx;
+        memcpy(fftBuffer.data(), buffer.data(), buffer.size() * 4);
+
+        std::thread([&] {
+            doFFT();
+        }).detach();
+
+        packageSentMs = currTime;
+    }
+
+    return 0;
+}
+
+void lbd::comp::AudioVisualizer::doFFT() {
+    for (int i = 0; i < firstChannel.size(); i++) {
+        firstChannel[i].real(fftBuffer[(i * 2 + fftBufferIdx) % fftBuffer.size()]);
+        firstChannel[i].imag(0);
+        secondChannel[i].real(fftBuffer[(i * 2 + fftBufferIdx + 1) % fftBuffer.size()]);
+        secondChannel[i].imag(0);
+    }
+
+    const char* error = nullptr;
+    auto b = simple_fft::FFT(firstChannel, firstChannel.size(), error);
+    if (!b) {
+        printf("%s\n", error);
+    }
+    else {
+        const auto maxFreq = 21000;
+        const float deltaFreq = (float) maxFreq / firstChannel.size()
+                                    * 1.6; // No idea why this is needed.
+        const int intervalCount = 14;
+        const int intervalStart = 40 / deltaFreq;
+        const int intervalLength = 3000 / deltaFreq;
+        std::vector<unsigned char> soundData;
+        soundData.reserve(intervalCount);
+
+        for (int i = 0; i < intervalCount; i++) {
+            double sum = 0;
+            const int subIntervalLength = intervalLength / intervalCount;
+            for (int j = i * subIntervalLength; j < (i + 1) * subIntervalLength; j++) {
+                sum += std::abs(firstChannel[intervalStart + j].real());
+                sum += std::abs(secondChannel[intervalStart + j].real());
+            }
+            soundData.push_back((unsigned char)min(sum, 300) / 1.5);
+        }
+
+        for (int i = 0; i < intervalCount; i++) {
+            soundData[i] *= (1 + i / 14. * 1.25);
+        }
+
+        LitBoardDriver::getInstance().getMessageHandler().send(*this, soundData.data(), intervalCount);
+    }
+}
 
 
 
-// REFERENCE_TIME time units per second and per millisecond
-#define REFTIMES_PER_SEC  20
-#define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC/1000)
+#define RECONNECT_ON_ERROR(hres)  \
+                  if (FAILED(hres)) { packetLength = 0; audioClientProvider.reconnect(); continue; }
 
-#define EXIT_ON_ERROR(hres)  \
-              if (FAILED(hres)) { goto Exit; }
-#define SAFE_RELEASE(punk)  \
-              if ((punk) != NULL)  \
-                { (punk)->Release(); (punk) = NULL; }
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
 
-HRESULT RecordAudioStream(MyAudioSink *pMySink)
-{
-    HRESULT hr;
-    REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
-    REFERENCE_TIME hnsActualDuration;
-    UINT32 bufferFrameCount;
-    UINT32 numFramesAvailable;
-    IMMDeviceEnumerator *pEnumerator = NULL;
-    IMMDevice *pDevice = NULL;
-    IAudioClient *pAudioClient = NULL;
-    IAudioCaptureClient *pCaptureClient = NULL;
-    WAVEFORMATEX *pwfx = NULL;
-    UINT32 packetLength = 0;
-    BOOL bDone = FALSE;
-    BYTE *pData = NULL;
-    DWORD flags;
+void lbd::comp::AudioVisualizer::startLoopbackAudio() {
+    std::thread([&] {
+        HRESULT hr;
+        UINT32 bufferFrameCount;
+        BOOL bDone = FALSE;
+        UINT32 packetLength = 0;
+        BYTE* pData;
+        UINT32 numFramesAvailable;
+        DWORD flags;
 
-    CoInitialize(NULL);
+        CoInitialize(NULL);
 
-    hr = CoCreateInstance(
-            CLSID_MMDeviceEnumerator, NULL,
-            CLSCTX_ALL, IID_IMMDeviceEnumerator,
-            (void**)&pEnumerator);
-    EXIT_ON_ERROR(hr)
+        // Get the size of the allocated buffer.
+        hr = audioClientProvider.getAudioClient()->GetBufferSize(&bufferFrameCount);
+        // RECONNECT_ON_ERROR(hr)
 
-    hr = pEnumerator->GetDefaultAudioEndpoint(
-            eRender, eConsole, &pDevice);
-    EXIT_ON_ERROR(hr)
+        // Notify the audio sink which format to use.
+        SetFormat(audioClientProvider.getFormat());
 
-    hr = pDevice->Activate(
-            IID_IAudioClient, CLSCTX_ALL,
-            NULL, (void**)&pAudioClient);
-    EXIT_ON_ERROR(hr)
+        const auto sleepTime = audioClientProvider.getActualDuration()/REFTIMES_PER_MILLISEC/2/30;
+        // Each loop fills about half of the shared buffer.
+        while (bDone == FALSE)
+        {
+            // Sleep for half the buffer duration.
+            Sleep(sleepTime);
 
-    hr = pAudioClient->GetMixFormat(&pwfx);
-    EXIT_ON_ERROR(hr)
+            hr = audioClientProvider.getCaptureClient()->GetNextPacketSize(&packetLength);
+            RECONNECT_ON_ERROR(hr)
 
-    hr = pAudioClient->Initialize(
-            AUDCLNT_SHAREMODE_SHARED,
-            AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM,
-            hnsRequestedDuration,
-            0,
-            pwfx,
-            NULL);
-    EXIT_ON_ERROR(hr)
+            while (packetLength != 0)
+            {
+                // Get the available data in the shared buffer.
+                hr = audioClientProvider.getCaptureClient()->GetBuffer(
+                        &pData,
+                        &numFramesAvailable,
+                        &flags, NULL, NULL);
+                RECONNECT_ON_ERROR(hr)
 
-    // Get the size of the allocated buffer.
-    hr = pAudioClient->GetBufferSize(&bufferFrameCount);
-    EXIT_ON_ERROR(hr)
+                if (flags & AUDCLNT_BUFFERFLAGS_SILENT)
+                {
+                    pData = NULL;  // Tell CopyData to write silence.
+                }
 
-    hr = pAudioClient->GetService(
-            IID_IAudioCaptureClient,
-            (void**)&pCaptureClient);
-    EXIT_ON_ERROR(hr)
+                // Copy the available capture data to the audio sink.
+                hr = CopyData(pData, numFramesAvailable, &bDone);
+                RECONNECT_ON_ERROR(hr)
 
-    // Notify the audio sink which format to use.
-    hr = pMySink->SetFormat(pwfx);
-    EXIT_ON_ERROR(hr)
+                hr = audioClientProvider.getCaptureClient()->ReleaseBuffer(numFramesAvailable);
+                RECONNECT_ON_ERROR(hr)
 
-    // Calculate the actual duration of the allocated buffer.
-    hnsActualDuration = (double)REFTIMES_PER_SEC *
-                        bufferFrameCount / pwfx->nSamplesPerSec;
-
-    hr = pAudioClient->Start();  // Start recording.
-    EXIT_ON_ERROR(hr)
-
-
-    // Each loop fills about half of the shared buffer.
-    while (bDone == FALSE) {
-        // Sleep for half the buffer duration.
-        // Sleep(hnsActualDuration/REFTIMES_PER_SEC*1000/2);
-        Sleep(500);
-
-        hr = pCaptureClient->GetNextPacketSize(&packetLength);
-        EXIT_ON_ERROR(hr)
-
-        numFramesAvailable = 0;
-
-        while (packetLength != 0) {
-            // Get the available data in the shared buffer.
-            hr = pCaptureClient->GetBuffer(
-                    &pData,
-                    &numFramesAvailable,
-                    &flags, NULL, NULL);
-            EXIT_ON_ERROR(hr)
-
-            if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
-                pData = NULL;  // Tell CopyData to write silence.
+                hr = audioClientProvider.getCaptureClient()->GetNextPacketSize(&packetLength);
+                RECONNECT_ON_ERROR(hr)
             }
-
-            // Copy the available capture data to the audio sink.
-            hr = pMySink->CopyData(
-                    pData, numFramesAvailable, &bDone);
-            EXIT_ON_ERROR(hr)
-
-            hr = pCaptureClient->ReleaseBuffer(numFramesAvailable);
-            EXIT_ON_ERROR(hr)
-
-            hr = pCaptureClient->GetNextPacketSize(&packetLength);
-            EXIT_ON_ERROR(hr)
         }
 
-        std::cout << "end of loop\n";
-        std::flush(std::cout);
-    }
+        hr = audioClientProvider.getAudioClient()->Stop();  // Stop recording.
 
-    hr = pAudioClient->Stop();  // Stop recording.
-    EXIT_ON_ERROR(hr)
-
-    Exit:
-    CoTaskMemFree(pwfx);
-    SAFE_RELEASE(pEnumerator)
-    SAFE_RELEASE(pDevice)
-    SAFE_RELEASE(pAudioClient)
-    SAFE_RELEASE(pCaptureClient)
-
-    return hr;
+        // return hr;
+    }).detach();
 }
-
-
-
-#include "LitBoardDriver.h"
-
-int main(int argc, char* argv[])
-{
-    MyAudioSink asd;
-    RecordAudioStream(&asd);
-
-    auto& driver = lbd::LitBoardDriver::getInstance();
-    // driver.run();
-    return 0;
-}
-
-*/

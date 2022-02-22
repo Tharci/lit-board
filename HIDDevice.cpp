@@ -68,6 +68,8 @@ int lbd::HIDDevice::write(std::vector<uint8_t> data) {
 }
 
 int lbd::HIDDevice::write(uint8_t* data, size_t length) {
+    static std::mutex writeMutex;
+    std::lock_guard lockGuard(writeMutex);
     return device ? hid_write(device, data, length) : -1;
 }
 

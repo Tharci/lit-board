@@ -5,6 +5,7 @@
 #include <iostream>
 #include "MessageHandler.h"
 #include "LitBoardDriver.h"
+#include <mutex>
 
 
 #define BUFFSIZE 512
@@ -37,7 +38,8 @@ void lbd::comp::MessageHandler::send(const lbd::comp::Component &component, cons
     buffer[sizeof magicalSafetyCode + 2] = (uint8_t) MessageType::ComponentMessage;
     buffer[sizeof magicalSafetyCode + 3] = (uint8_t) component.getComponentId();
     std::memcpy(buffer + sizeof magicalSafetyCode + 4, data, length);
-    length += sizeof magicalSafetyCode + 4;
+    length += sizeof magicalSafetyCode + 3;
+
     LitBoardDriver::getInstance().getKeyboardHandler().getKeyboard().write(buffer, length);
 }
 
@@ -55,15 +57,15 @@ void lbd::comp::MessageHandler::asyncTaskCycle() {
     auto& driver = LitBoardDriver::getInstance();
     uint8_t buffer[BUFFSIZE];
     auto result = driver.getKeyboardHandler().getKeyboard().read(buffer, BUFFSIZE);
-    auto componentId = (lbd::comp::ComponentId) buffer[0];
 
     if (result > 1) {
+        auto componentId = (lbd::comp::ComponentId) buffer[0];
         auto it = driver.getComponents().find(componentId);
         if (it != driver.getComponents().end()) {
             it->second->messageReceived(buffer + 1, result - 1);
         }
     }
     else {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        conditionalSleep(200);
     }
 }
