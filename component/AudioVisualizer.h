@@ -29,20 +29,23 @@ namespace lbd::comp {
         void stop();
         void onKeyboardDisconnected() override;
         void startLoopbackAudio();
+        bool copyAudioBufferData();
+        void onConnectedCallback(IAudioClient*, IAudioCaptureClient*, WAVEFORMATEX*,  UINT32);
 
         std::atomic<bool> running = false;
 
-        tWAVEFORMATEX format;
         std::vector<float> buffer;
         size_t bufferIdx;
         uint64_t packageSentMs {};
 
-        std::vector<complex_type> firstChannel;
-        std::vector<complex_type> secondChannel;
+        std::vector<complex_type> singleChannel;
         std::vector<float> fftBuffer;
         size_t fftBufferIdx;
 
         AudioClientProvider audioClientProvider;
+        IAudioClient* audioClient;
+        IAudioCaptureClient* captureClient;
+        REFERENCE_TIME hnsActualDuration;
 
         HRESULT SetFormat(WAVEFORMATEX* format);
         HRESULT CopyData(byte* byteBuff, unsigned buffLen, BOOL* b);

@@ -10,40 +10,25 @@
 #include <mmdeviceapi.h>
 #include <Audioclient.h>
 #include <mutex>
+#include <functional>
+#include <utility>
 
 
 #define REFTIMES_PER_SEC  10000000
 #define REFTIMES_PER_MILLISEC  10000
 
 #define SAFE_RELEASE(punk)  \
-                  if ((punk) != NULL)  \
-                    { (punk)->Release(); (punk) = NULL; }
+                  if ((punk) != NULL) { (punk)->Release(); (punk) = NULL; }
 
 #define RELEASE_ON_ERROR(hres)  \
                   if (FAILED(hres)) { releaseResources(); return; }
 
+
 namespace lbd::comp {
     class AudioClientProvider : public IMMNotificationClient {
     public:
-        WAVEFORMATEX *getFormat() {
-            keepConnection();
-            return pwfx;
-        }
-
-        IAudioCaptureClient *getCaptureClient() {
-            keepConnection();
-            return pCaptureClient;
-        }
-
-        IAudioClient *getAudioClient() {
-            keepConnection();
-            return pAudioClient;
-        }
-
-        REFERENCE_TIME getActualDuration() {
-            keepConnection();
-            return hnsActualDuration;
-        }
+        explicit AudioClientProvider(std::function<void(IAudioClient*, IAudioCaptureClient*, WAVEFORMATEX*, UINT32)> onConnectedCallback)
+            : onConnectedCallback(std::move(onConnectedCallback)) { }
 
         void keepConnection() {
             std::lock_guard lockGuard(reconnectMutex);
@@ -108,6 +93,11 @@ namespace lbd::comp {
             SAFE_RELEASE(pDevice)
             SAFE_RELEASE(pAudioClient)
             SAFE_RELEASE(pCaptureClient)
+
+            pCaptureClient = nullptr;
+            pCaptureClient = nullptr;
+            pDevice = nullptr;
+            pAudioClient = nullptr;
         }
 
         void connect() {
@@ -153,25 +143,23 @@ namespace lbd::comp {
                     (void **) &pCaptureClient);
             RELEASE_ON_ERROR(hr);
 
-            // Calculate the actual duration of the allocated buffer.
-            hnsActualDuration = (double) REFTIMES_PER_SEC *
-                                bufferFrameCount / pwfx->nSamplesPerSec;
-
             hr = pAudioClient->Start();  // Start recording.
             RELEASE_ON_ERROR(hr);
+
+            onConnectedCallback(pAudioClient, pCaptureClient, pwfx, bufferFrameCount);
         }
 
+        std::function<void(IAudioClient*, IAudioCaptureClient*, WAVEFORMATEX*,  UINT32)> onConnectedCallback;
         std::mutex reconnectMutex;
         bool shouldReconnect = true;
 
         REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
-        REFERENCE_TIME hnsActualDuration;
-        UINT32 bufferFrameCount;
-        IMMDeviceEnumerator *pEnumerator = nullptr;
-        IMMDevice *pDevice = nullptr;
-        IAudioClient *pAudioClient = nullptr;
-        IAudioCaptureClient *pCaptureClient = nullptr;
-        WAVEFORMATEX *pwfx = nullptr;
+        UINT32 bufferFrameCount {};
+        IMMDeviceEnumerator* pEnumerator = nullptr;
+        IMMDevice* pDevice = nullptr;
+        IAudioClient* pAudioClient = nullptr;
+        IAudioCaptureClient* pCaptureClient = nullptr;
+        WAVEFORMATEX* pwfx = nullptr;
     };
 }
 

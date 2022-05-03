@@ -14,7 +14,8 @@
 #include "AudioVisualizer.h"
 
 
-lbd::comp::AudioVisualizer::AudioVisualizer() {
+lbd::comp::AudioVisualizer::AudioVisualizer()
+    : audioClientProvider(std::bind(&AudioVisualizer::onConnectedCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)) {
     startLoopbackAudio();
 }
 
@@ -75,16 +76,16 @@ uint64_t largest2PowerBelow(uint64_t v) {
 
 HRESULT lbd::comp::AudioVisualizer::SetFormat(WAVEFORMATEX* format) {
     if (format->nChannels != 2) {
-        throw std::exception("Expected number of channels is 2.");
+        std::cout << "[ERROR] Cannot listen to audio channel. Expected number of channels is 2.\n";
+        captureClient = nullptr;
+        audioClient = nullptr;
     }
 
-    this->format = *format;
     // The buffer contains 200ms of data.
-    auto bufferSize = largest2PowerBelow(format->nAvgBytesPerSec / 5 / 8 / (format->wBitsPerSample / 8));
+    auto bufferSize = largest2PowerBelow(format->nAvgBytesPerSec / 5 / 4 / (format->wBitsPerSample / 8));
     buffer.resize(bufferSize);
     fftBuffer.resize(bufferSize);
-    firstChannel.resize(bufferSize / 2);
-    secondChannel.resize(bufferSize / 2);
+    singleChannel.resize(bufferSize / 2);
     std::memset(buffer.data(), 0, buffer.size() * (format->wBitsPerSample / 8));
     bufferIdx = 1;
 
@@ -109,7 +110,7 @@ HRESULT lbd::comp::AudioVisualizer::CopyData(byte* byteBuff, unsigned buffLen, B
     bufferIdx = (bufferIdx + buffLen) % buffer.size();
 
     auto currTime = getTimeMs();
-    if (running && currTime - packageSentMs > 80) {
+    if (running && currTime - packageSentMs > 30) {
         fftBufferIdx = bufferIdx;
         memcpy(fftBuffer.data(), buffer.data(), buffer.size() * 4);
 
@@ -124,24 +125,21 @@ HRESULT lbd::comp::AudioVisualizer::CopyData(byte* byteBuff, unsigned buffLen, B
 }
 
 void lbd::comp::AudioVisualizer::doFFT() {
-    for (int i = 0; i < firstChannel.size(); i++) {
-        firstChannel[i].real(fftBuffer[(i * 2 + fftBufferIdx) % fftBuffer.size()]);
-        firstChannel[i].imag(0);
-        secondChannel[i].real(fftBuffer[(i * 2 + fftBufferIdx + 1) % fftBuffer.size()]);
-        secondChannel[i].imag(0);
+    for (int i = 0; i < singleChannel.size(); i++) {
+        singleChannel[i].real(fftBuffer[(i * 2 + fftBufferIdx) % fftBuffer.size()] + fftBuffer[(i * 2 + fftBufferIdx + 1) % fftBuffer.size()]);
+        singleChannel[i].imag(0);
     }
 
-    const char* error = nullptr;
-    auto b = simple_fft::FFT(firstChannel, firstChannel.size(), error);
-    if (!b) {
-        printf("%s\n", error);
+    const char* error1 = nullptr;
+    auto b1 = simple_fft::FFT(singleChannel, singleChannel.size(), error1);
+    if (!b1) {
+        printf("%s\n", error1);
     }
     else {
         const auto maxFreq = 21000;
-        const float deltaFreq = (float) maxFreq / firstChannel.size()
-                                    * 1.6; // No idea why this is needed.
+        const float deltaFreq = (float) maxFreq / singleChannel.size();
         const int intervalCount = 14;
-        const int intervalStart = 40 / deltaFreq;
+        const int intervalStart = 20 / deltaFreq;
         const int intervalLength = 3000 / deltaFreq;
         std::vector<unsigned char> soundData;
         soundData.reserve(intervalCount);
@@ -150,14 +148,9 @@ void lbd::comp::AudioVisualizer::doFFT() {
             double sum = 0;
             const int subIntervalLength = intervalLength / intervalCount;
             for (int j = i * subIntervalLength; j < (i + 1) * subIntervalLength; j++) {
-                sum += std::abs(firstChannel[intervalStart + j].real());
-                sum += std::abs(secondChannel[intervalStart + j].real());
+                sum += std::abs(singleChannel[intervalStart + j].real());
             }
-            soundData.push_back((unsigned char)min(sum, 300) / 1.5);
-        }
-
-        for (int i = 0; i < intervalCount; i++) {
-            soundData[i] *= (1 + i / 14. * 1.25);
+            soundData.push_back((unsigned char)min(sum / 11 * (1 + i / 14. * 1.7), 100));
         }
 
         LitBoardDriver::getInstance().getMessageHandler().send(*this, soundData.data(), intervalCount);
@@ -166,8 +159,8 @@ void lbd::comp::AudioVisualizer::doFFT() {
 
 
 
-#define RECONNECT_ON_ERROR(hres)  \
-                  if (FAILED(hres)) { packetLength = 0; audioClientProvider.reconnect(); continue; }
+#define RETURN_ON_ERROR(hres)  \
+                  if (FAILED(hres)) { packetLength = 0; audioClient = nullptr; captureClient = nullptr; audioClientProvider.reconnect(); Sleep(100); return false; }
 
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
@@ -177,61 +170,77 @@ const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
 
 void lbd::comp::AudioVisualizer::startLoopbackAudio() {
     std::thread([&] {
-        HRESULT hr;
-        UINT32 bufferFrameCount;
-        BOOL bDone = FALSE;
-        UINT32 packetLength = 0;
-        BYTE* pData;
-        UINT32 numFramesAvailable;
-        DWORD flags;
+        bool done = false;
 
-        CoInitialize(NULL);
+        CoInitialize(nullptr);
 
-        // Get the size of the allocated buffer.
-        hr = audioClientProvider.getAudioClient()->GetBufferSize(&bufferFrameCount);
-        // RECONNECT_ON_ERROR(hr)
+        audioClientProvider.reconnect();
 
-        // Notify the audio sink which format to use.
-        SetFormat(audioClientProvider.getFormat());
-
-        const auto sleepTime = audioClientProvider.getActualDuration()/REFTIMES_PER_MILLISEC/2/30;
         // Each loop fills about half of the shared buffer.
-        while (bDone == FALSE)
-        {
+        while (!done) {
             // Sleep for half the buffer duration.
+            audioClientProvider.keepConnection();
+            const auto sleepTime = hnsActualDuration/REFTIMES_PER_MILLISEC/2/30;
             Sleep(sleepTime);
-
-            hr = audioClientProvider.getCaptureClient()->GetNextPacketSize(&packetLength);
-            RECONNECT_ON_ERROR(hr)
-
-            while (packetLength != 0)
-            {
-                // Get the available data in the shared buffer.
-                hr = audioClientProvider.getCaptureClient()->GetBuffer(
-                        &pData,
-                        &numFramesAvailable,
-                        &flags, NULL, NULL);
-                RECONNECT_ON_ERROR(hr)
-
-                if (flags & AUDCLNT_BUFFERFLAGS_SILENT)
-                {
-                    pData = NULL;  // Tell CopyData to write silence.
-                }
-
-                // Copy the available capture data to the audio sink.
-                hr = CopyData(pData, numFramesAvailable, &bDone);
-                RECONNECT_ON_ERROR(hr)
-
-                hr = audioClientProvider.getCaptureClient()->ReleaseBuffer(numFramesAvailable);
-                RECONNECT_ON_ERROR(hr)
-
-                hr = audioClientProvider.getCaptureClient()->GetNextPacketSize(&packetLength);
-                RECONNECT_ON_ERROR(hr)
-            }
+            done = copyAudioBufferData();
         }
 
-        hr = audioClientProvider.getAudioClient()->Stop();  // Stop recording.
+        audioClient->Stop();  // Stop recording.
 
         // return hr;
     }).detach();
+}
+
+void lbd::comp::AudioVisualizer::onConnectedCallback(
+        IAudioClient* newAudioClient, IAudioCaptureClient* newCaptureClient, WAVEFORMATEX* format,  UINT32 bufferFrameCount) {
+    audioClient = newAudioClient;
+    captureClient = newCaptureClient;
+
+    // Calculate the actual duration of the allocated buffer.
+    hnsActualDuration = (double) REFTIMES_PER_SEC * bufferFrameCount / format->nSamplesPerSec;
+
+    SetFormat(format);
+}
+
+bool lbd::comp::AudioVisualizer::copyAudioBufferData() {
+    UINT32 packetLength = 0;
+    HRESULT hr;
+    BYTE* pData;
+    UINT32 numFramesAvailable;
+    DWORD flags;
+    BOOL done = false;
+
+    if (!captureClient) {
+        audioClientProvider.reconnect();
+        Sleep(500);
+        return false;
+    }
+
+    hr = captureClient->GetNextPacketSize(&packetLength);
+    RETURN_ON_ERROR(hr)
+
+    while (packetLength != 0) {
+        // Get the available data in the shared buffer.
+        hr = captureClient->GetBuffer(
+                &pData,
+                &numFramesAvailable,
+                &flags, nullptr, nullptr);
+        RETURN_ON_ERROR(hr)
+
+        if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
+            pData = nullptr;  // Tell CopyData to write silence.
+        }
+
+        // Copy the available capture data to the audio sink.
+        hr = CopyData(pData, numFramesAvailable, &done);
+        RETURN_ON_ERROR(hr)
+
+        hr = captureClient->ReleaseBuffer(numFramesAvailable);
+        RETURN_ON_ERROR(hr)
+
+        hr = captureClient->GetNextPacketSize(&packetLength);
+        RETURN_ON_ERROR(hr)
+    }
+
+    return done;
 }
